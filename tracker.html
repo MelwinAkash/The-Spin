@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Spin — Build Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: #0B0B12;
+            color: #F5F5F7;
+            min-height: 100dvh;
+            padding: 16px;
+            -webkit-font-smoothing: antialiased;
+        }
+        :root {
+            --surface: #16161F;
+            --violet: #8B5CF6;
+            --cyan: #22D3EE;
+            --emerald: #34D399;
+            --amber: #F59E0B;
+            --magenta: #D946EF;
+            --muted: #9CA3AF;
+            --border: rgba(255,255,255,0.08);
+            --radius: 12px;
+        }
+
+        .container { max-width: 720px; margin: 0 auto; }
+
+        /* Header */
+        .hdr {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            margin-bottom: 16px;
+        }
+        .hdr-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+        .hdr h1 { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .hdr h1 span.accent { color: var(--violet); }
+        .hdr p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+        .reset-btn {
+            font-size: 12px; padding: 6px 14px; border-radius: 8px;
+            border: 1px solid var(--border); background: none; color: var(--muted);
+            cursor: pointer; transition: all 0.2s;
+        }
+        .reset-btn:hover { border-color: var(--violet); color: #F5F5F7; }
+
+        /* Progress bar */
+        .pbar-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+        .pbar { width: 100%; height: 10px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; }
+        .pbar-fill {
+            height: 100%; border-radius: 5px;
+            background: linear-gradient(90deg, var(--violet), var(--cyan), var(--emerald));
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Active step callout */
+        .active-callout {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: rgba(139, 92, 246, 0.08);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+            animation: pulse-border 2s ease-in-out infinite;
+        }
+        .active-callout.show { display: flex; }
+        .active-callout .ac-icon { font-size: 22px; flex-shrink: 0; }
+        .ac-label { font-size: 11px; color: var(--violet); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .ac-text { font-size: 14px; font-weight: 500; margin-top: 2px; }
+
+        @keyframes pulse-border {
+            0%, 100% { border-color: rgba(139, 92, 246, 0.3); box-shadow: 0 0 8px rgba(139, 92, 246, 0.1); }
+            50% { border-color: rgba(139, 92, 246, 0.6); box-shadow: 0 0 20px rgba(139, 92, 246, 0.2); }
+        }
+
+        /* Section card */
+        .section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 10px;
+            overflow: hidden;
+            transition: border-color 0.3s;
+        }
+        .section.done { border-color: rgba(52, 211, 153, 0.3); }
+        .section.has-active { border-color: rgba(139, 92, 246, 0.35); }
+
+        .sec-header {
+            padding: 14px 18px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .sec-left { display: flex; align-items: center; gap: 10px; }
+        .sec-icon { font-size: 18px; }
+        .sec-title { font-size: 15px; font-weight: 600; }
+        .sec-right { display: flex; align-items: center; gap: 10px; }
+        .sec-count { font-size: 12px; color: var(--muted); }
+        .sec-badge {
+            font-size: 11px; padding: 2px 8px; border-radius: 10px;
+            background: rgba(52, 211, 153, 0.15); color: var(--emerald); font-weight: 600;
+        }
+        .sec-chevron {
+            font-size: 11px; color: var(--muted);
+            transition: transform 0.2s;
+        }
+        .sec-chevron.open { transform: rotate(90deg); }
+
+        .sec-progress {
+            margin: 0 18px 10px;
+            height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;
+        }
+        .sec-progress-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+
+        .sec-body { padding: 0 12px 12px; }
+        .sec-body.collapsed { display: none; }
+
+        /* Step */
+        .step {
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 10px 12px; border-radius: 8px;
+            cursor: pointer; transition: all 0.2s; position: relative;
+        }
+        .step:hover { background: rgba(255,255,255,0.03); }
+        .step.active-step {
+            background: rgba(139, 92, 246, 0.06);
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            animation: pulse-border 2s ease-in-out infinite;
+        }
+        .step.completed { opacity: 0.5; }
+
+        /* Checkbox */
+        .cb {
+            width: 22px; height: 22px; border-radius: 6px;
+            border: 2px solid rgba(255,255,255,0.15);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; margin-top: 1px;
+            transition: all 0.2s; cursor: pointer;
+        }
+        .cb:hover { border-color: var(--violet); }
+        .cb.checked { border-color: var(--emerald); background: var(--emerald); }
+        .cb svg { display: none; }
+        .cb.checked svg { display: block; }
+
+        @keyframes check-pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .cb.checked svg { animation: check-pop 0.25s ease-out; }
+
+        .step-text { flex: 1; font-size: 13px; line-height: 1.5; }
+        .step.completed .step-text { text-decoration: line-through; color: var(--muted); }
+
+        .step-tag {
+            font-size: 10px; padding: 2px 8px; border-radius: 6px;
+            font-weight: 600; flex-shrink: 0; white-space: nowrap; margin-top: 2px;
+        }
+        .step-tag.current { background: var(--violet); color: #fff; }
+        .step-tag.set-active {
+            background: none; border: 1px solid var(--border); color: var(--muted);
+            opacity: 0; transition: opacity 0.15s; cursor: pointer;
+        }
+        .step:hover .step-tag.set-active { opacity: 1; }
+        .step-tag.set-active:hover { border-color: var(--violet); color: #F5F5F7; }
+
+        /* Checklist */
+        .checklist-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+            margin-top: 16px;
+        }
+        .cl-title {
+            font-size: 16px; font-weight: 700; margin-bottom: 14px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .cl-count {
+            font-size: 11px; padding: 2px 10px; border-radius: 10px;
+            background: rgba(255,255,255,0.06); color: var(--muted); font-weight: 500;
+        }
+
+        /* Timestamp */
+        .updated-at {
+            text-align: center; padding: 24px; font-size: 12px; color: rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="hdr">
+        <div class="hdr-top">
+            <div>
+                <h1>🎡 <span class="accent">The Spin</span> — Build Tracker</h1>
+                <p>Live progress through build.md instructions</p>
+            </div>
+            <button class="reset-btn" onclick="resetAll()">Reset</button>
+        </div>
+        <div class="pbar-labels">
+            <span id="p-label">0 / 0 steps</span>
+            <span id="p-pct">0%</span>
+        </div>
+        <div class="pbar"><div class="pbar-fill" id="p-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="active-callout" id="active-callout">
+        <span class="ac-icon">⚡</span>
+        <div>
+            <div class="ac-label">Currently Working On</div>
+            <div class="ac-text" id="ac-text"></div>
+        </div>
+    </div>
+
+    <div id="sections"></div>
+
+    <div class="checklist-card">
+        <div class="cl-title">✅ Acceptance Checklist <span class="cl-count" id="cl-count">0/0</span></div>
+        <div id="cl-items"></div>
+    </div>
+
+    <div class="updated-at" id="updated-at"></div>
+</div>
+
+<script>
+/* ── Data ── */
+const sections = [
+    {
+        id: 'setup', title: 'Project Setup', icon: '⚙️', color: '#8B5CF6',
+        steps: [
+            { id: 's1', text: 'Create single index.html file with inline <style> and <script>' },
+            { id: 's2', text: 'Add Google Fonts link (Space Grotesk)' },
+            { id: 's3', text: 'Define CSS variables: --bg, --surface, --violet, --cyan, --emerald, --text, --muted' },
+            { id: 's4', text: 'Set up base responsive layout (mobile-first, one-handed use)' },
+        ]
+    },
+    {
+        id: 'data', title: 'Data Model & Persistence', icon: '💾', color: '#22D3EE',
+        steps: [
+            { id: 'd1', text: 'Implement localStorage data model: { activeListId, lists }' },
+            { id: 'd2', text: 'Each option stores: id, name, used (boolean), lastPickedAt' },
+            { id: 'd3', text: 'Build save/load helper functions for localStorage persistence' },
+            { id: 'd4', text: 'Verify data persists across page reloads' },
+        ]
+    },
+    {
+        id: 'lists', title: 'Feature 1 — Lists', icon: '📋', color: '#F59E0B',
+        steps: [
+            { id: 'l1', text: 'Create, rename, and delete named lists' },
+            { id: 'l2', text: 'Build list switcher (dropdown + ⚙ manager modal)' },
+            { id: 'l3', text: 'All content below operates on the currently active list' },
+            { id: 'l4', text: 'Lists persist across page reloads' },
+        ]
+    },
+    {
+        id: 'options', title: 'Feature 2 — Options', icon: '📝', color: '#D946EF',
+        steps: [
+            { id: 'o1', text: 'Add / edit / delete options (text input + list view)' },
+            { id: 'o2', text: 'Manual "Used" toggle per option (switch) — app never auto-marks' },
+            { id: 'o3', text: 'Used options visually greyed out & excluded from wheel' },
+            { id: 'o4', text: '"Reset all" per list behind a confirmation dialog' },
+            { id: 'o5', text: 'Validation: trim whitespace, block empty, warn on duplicates' },
+        ]
+    },
+    {
+        id: 'wheel', title: 'Feature 3 — The Wheel', icon: '🎡', color: '#8B5CF6',
+        steps: [
+            { id: 'w1', text: 'Canvas-drawn wheel divided into equal segments (one per unused option)' },
+            { id: 'w2', text: 'Segment colors cycle through jewel tones (violet, cyan, magenta, amber) blended toward black' },
+            { id: 'w3', text: 'Thin glowing border per segment' },
+            { id: 'w4', text: 'Subtle outer glow/shadow (premium, app-like)' },
+            { id: 'w5', text: 'Fixed pointer/marker at the top' },
+            { id: 'w6', text: 'Big central "SPIN" button' },
+            { id: 'w7', text: 'Spin animation: 4-6 rotations, precise landing, cubic ease-out, ~3.5s' },
+            { id: 'w8', text: 'Uniform random probability across unused options' },
+            { id: 'w9', text: 'Disable spin with message if < 2 unused options' },
+            { id: 'w10', text: 'Empty state if 0 unused options' },
+        ]
+    },
+    {
+        id: 'commit', title: 'Feature 4 — Commitment Flow', icon: '🔒', color: '#34D399',
+        steps: [
+            { id: 'c1', text: 'Result modal with chosen option name — large and bold' },
+            { id: 'c2', text: 'Two buttons: "Spin Again (1 left)" and "Lock It In"' },
+            { id: 'c3', text: 'Re-spin: spin again, then show ONLY "Lock It In"' },
+            { id: 'c4', text: 'Supporting text: "No more re-spins — this one\'s yours."' },
+            { id: 'c5', text: '"Lock It In" → satisfying confirmation animation (emerald pulse)' },
+            { id: 'c6', text: '"Today\'s Pick" banner with committed option' },
+            { id: 'c7', text: '"Mark as used" convenience button on locked-in result' },
+            { id: 'c8', text: 'Decisive copy: "The wheel has spoken.", "Locked in — enjoy it."' },
+        ]
+    },
+    {
+        id: 'history', title: 'Feature 5 — History', icon: '📜', color: '#22D3EE',
+        steps: [
+            { id: 'h1', text: 'Collapsible "Recently picked" section per list' },
+            { id: 'h2', text: 'Shows last ~10 locked-in picks with timestamps' },
+            { id: 'h3', text: 'Read-only — builds trust, not management' },
+        ]
+    },
+    {
+        id: 'polish', title: 'Visual Polish & Responsive', icon: '✨', color: '#F59E0B',
+        steps: [
+            { id: 'p1', text: 'Mobile-first responsive design (one-handed)' },
+            { id: 'p2', text: 'Dark bg + violet/cyan/emerald accent system' },
+            { id: 'p3', text: 'Premium, app-like wheel (no generic/carnival look)' },
+            { id: 'p4', text: 'Bold, large typography for result reveals' },
+        ]
+    },
+    {
+        id: 'pwa', title: 'Progressive Web App (PWA)', icon: '📱', color: '#3B82F6',
+        steps: [
+            { id: 'pw1', text: 'Generate app icons (192×192 and 512×512 PNG) with violet wheel glyph on black' },
+            { id: 'pw2', text: 'Create manifest.json — name, display: standalone, theme_color, icons' },
+            { id: 'pw3', text: 'Create sw.js service worker — cache-first strategy, precache all assets' },
+            { id: 'pw4', text: 'Add <link rel="manifest"> and <meta name="theme-color"> to index.html <head>' },
+            { id: 'pw5', text: 'Add iOS home-screen tags: apple-mobile-web-app-capable, status-bar-style, apple-touch-icon' },
+            { id: 'pw6', text: 'Register service worker at bottom of index.html script' },
+        ]
+    }
+];
+
+const checklist = [
+    { id: 'a1', text: 'Works as a single self-contained index.html, no external JS dependencies beyond font link' },
+    { id: 'a2', text: 'Multiple lists: create, rename, delete, switch — persists across reloads' },
+    { id: 'a3', text: 'Options: add/edit/delete with manual per-option "used" toggle that persists' },
+    { id: 'a4', text: 'Wheel only includes non-used options, spin disabled below 2 unused' },
+    { id: 'a5', text: 'Spin animation lands precisely on selected segment with smooth easing' },
+    { id: 'a6', text: 'Result flow allows exactly one re-spin, then forces lock-in' },
+    { id: 'a7', text: 'Lock-in shows satisfying confirmation and offers one-tap "mark as used"' },
+    { id: 'a8', text: 'Fully responsive on mobile' },
+    { id: 'a9', text: 'Visual design matches dark bg + accent system — no default/generic wheel' },
+];
+
+/* ── State ── */
+/*__STATE_START__*/
+const STATE = {
+    completed: {
+        's1': true, 's2': true, 's3': true, 's4': true,
+        'd1': true, 'd2': true, 'd3': true, 'd4': true,
+        'l1': true, 'l2': true, 'l3': true, 'l4': true,
+        'o1': true, 'o2': true, 'o3': true, 'o4': true, 'o5': true,
+        'w1': true, 'w2': true, 'w3': true, 'w4': true, 'w5': true,
+        'w6': true, 'w7': true, 'w8': true, 'w9': true, 'w10': true,
+        'c1': true, 'c2': true, 'c3': true, 'c4': true, 'c5': true,
+        'c6': true, 'c7': true, 'c8': true,
+        'h1': true, 'h2': true, 'h3': true,
+        'p1': true, 'p2': true, 'p3': true, 'p4': true,
+        'pw1': true, 'pw2': true, 'pw3': true, 'pw4': true, 'pw5': true, 'pw6': true,
+    },
+    active: null,
+    checklistDone: {
+        'a1': true, 'a2': true, 'a3': true, 'a4': true,
+        'a5': true, 'a6': true, 'a7': true, 'a8': true, 'a9': true,
+    },
+    updatedAt: '2026-08-30T02:33:00+05:30',
+};
+/*__STATE_END__*/
+
+/* ── Helpers ── */
+function allStepIds() { return sections.flatMap(s => s.steps.map(st => st.id)); }
+function doneCount() { return allStepIds().filter(id => STATE.completed[id]).length; }
+function totalSteps() { return allStepIds().length; }
+
+/* ── Render ── */
+function render() {
+    renderProgress();
+    renderActiveCallout();
+    renderSections();
+    renderChecklist();
+    renderTimestamp();
+}
+
+function renderProgress() {
+    const d = doneCount(), t = totalSteps();
+    const pct = t > 0 ? Math.round((d / t) * 100) : 0;
+    document.getElementById('p-label').textContent = `${d} / ${t} steps`;
+    document.getElementById('p-pct').textContent = `${pct}%`;
+    document.getElementById('p-fill').style.width = `${pct}%`;
+}
+
+function renderActiveCallout() {
+    const el = document.getElementById('active-callout');
+    if (!STATE.active) { el.classList.remove('show'); return; }
+    const step = sections.flatMap(s => s.steps).find(s => s.id === STATE.active);
+    if (!step) { el.classList.remove('show'); return; }
+    document.getElementById('ac-text').textContent = step.text;
+    el.classList.add('show');
+}
+
+function renderSections() {
+    const container = document.getElementById('sections');
+    container.innerHTML = sections.map((sec, sIdx) => {
+        const done = sec.steps.filter(s => STATE.completed[s.id]).length;
+        const total = sec.steps.length;
+        const allDone = done === total;
+        const hasActive = sec.steps.some(s => s.id === STATE.active);
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        const isOpen = hasActive || !allDone || sIdx === 0;
+
+        return `
+        <div class="section ${allDone ? 'done' : ''} ${hasActive ? 'has-active' : ''}">
+            <div class="sec-header" onclick="toggleSection('${sec.id}')">
+                <div class="sec-left">
+                    <span class="sec-icon">${sec.icon}</span>
+                    <span class="sec-title">${sec.title}</span>
+                    ${allDone ? '<span class="sec-badge">Done</span>' : ''}
+                </div>
+                <div class="sec-right">
+                    <span class="sec-count">${done}/${total}</span>
+                    <span class="sec-chevron ${isOpen ? 'open' : ''}" id="chev-${sec.id}">▶</span>
+                </div>
+            </div>
+            <div class="sec-progress"><div class="sec-progress-fill" style="width:${pct}%;background:${allDone ? 'var(--emerald)' : sec.color}"></div></div>
+            <div class="sec-body ${isOpen ? '' : 'collapsed'}" id="body-${sec.id}">
+                ${sec.steps.map(step => {
+                    const isDone = !!STATE.completed[step.id];
+                    const isActive = STATE.active === step.id;
+                    return `
+                    <div class="step ${isDone ? 'completed' : ''} ${isActive ? 'active-step' : ''}" onclick="toggleStep('${step.id}')">
+                        <div class="cb ${isDone ? 'checked' : ''}" onclick="event.stopPropagation(); toggleStep('${step.id}')">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#0B0B12" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg>
+                        </div>
+                        <span class="step-text">${step.text}</span>
+                        ${isActive ? '<span class="step-tag current">● Current</span>' :
+                          (!isDone ? `<span class="step-tag set-active" onclick="event.stopPropagation(); setActive('${step.id}')">Set Active</span>` : '')}
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderChecklist() {
+    const d = checklist.filter(c => STATE.checklistDone[c.id]).length;
+    document.getElementById('cl-count').textContent = `${d}/${checklist.length}`;
+    document.getElementById('cl-items').innerHTML = checklist.map(item => {
+        const isDone = !!STATE.checklistDone[item.id];
+        return `
+        <div class="step ${isDone ? 'completed' : ''}" onclick="toggleCL('${item.id}')">
+            <div class="cb ${isDone ? 'checked' : ''}">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#0B0B12" stroke-width="2.5"><path d="M2 6l3 3 5-5"/></svg>
+            </div>
+            <span class="step-text">${item.text}</span>
+        </div>`;
+    }).join('');
+}
+
+function renderTimestamp() {
+    if (STATE.updatedAt) {
+        const d = new Date(STATE.updatedAt);
+        document.getElementById('updated-at').textContent = `Last updated: ${d.toLocaleString()}`;
+    }
+}
+
+/* ── Interactions ── */
+function toggleSection(secId) {
+    const body = document.getElementById('body-' + secId);
+    const chev = document.getElementById('chev-' + secId);
+    body.classList.toggle('collapsed');
+    chev.classList.toggle('open');
+}
+
+function toggleStep(id) {
+    STATE.completed[id] = !STATE.completed[id];
+    if (!STATE.completed[id]) delete STATE.completed[id];
+    if (STATE.active === id && STATE.completed[id]) STATE.active = null;
+    render();
+}
+
+function setActive(id) {
+    STATE.active = id;
+    render();
+}
+
+function toggleCL(id) {
+    STATE.checklistDone[id] = !STATE.checklistDone[id];
+    if (!STATE.checklistDone[id]) delete STATE.checklistDone[id];
+    render();
+}
+
+function resetAll() {
+    if (!confirm('Reset all progress?')) return;
+    Object.keys(STATE.completed).forEach(k => delete STATE.completed[k]);
+    Object.keys(STATE.checklistDone).forEach(k => delete STATE.checklistDone[k]);
+    STATE.active = null;
+    render();
+}
+
+/* ── Init ── */
+render();
+</script>
+</body>
+</html>
+

@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>The Spin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0B0B12">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <style>
+        /* ── CSS Variables ── */
+        :root {
+            --bg: #0B0B12;
+            --surface: #16161F;
+            --violet: #8B5CF6;
+            --cyan: #22D3EE;
+            --emerald: #34D399;
+            --text: #F5F5F7;
+            --muted: #9CA3AF;
+            --danger: #EF4444;
+            --magenta: #D946EF;
+            --amber: #F59E0B;
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        /* ── Reset & Base ── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100dvh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+        input { font-family: inherit; color: inherit; background: none; border: none; outline: none; }
+        ul { list-style: none; }
+
+        /* ── App Shell ── */
+        #app {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 0 16px 32px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100dvh;
+        }
+
+        /* ── Header ── */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 0 12px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--bg);
+        }
+        .header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            flex-shrink: 0;
+        }
+        .header h1 span { color: var(--violet); }
+        .list-select-wrap {
+            flex: 1;
+            min-width: 0;
+            position: relative;
+        }
+        .list-select-btn {
+            width: 100%;
+            padding: 8px 32px 8px 12px;
+            background: var(--surface);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 500;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: border-color 0.2s;
+        }
+        .list-select-btn:hover { border-color: var(--violet); }
+        .list-select-btn::after {
+            content: '▾';
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .header-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-sm);
+            background: var(--surface);
+            border: 1px solid rgba(255,255,255,0.06);
+            font-size: 16px;
+            flex-shrink: 0;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .header-btn:hover { border-color: var(--violet); background: rgba(139,92,246,0.1); }
+
+        /* ── Wheel Section ── */
+        .wheel-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 0 16px;
+            position: relative;
+        }
+        .wheel-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #wheel {
+            display: block;
+            filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.15)) drop-shadow(0 0 60px rgba(139, 92, 246, 0.08));
+        }
+        .pointer {
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+            filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.6));
+        }
+        .pointer svg { display: block; }
+        #spin-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: var(--surface);
+            border: 2px solid var(--violet);
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            z-index: 4;
+            transition: background 0.2s, box-shadow 0.2s, transform 0.15s, opacity 0.2s;
+            box-shadow: 0 0 16px rgba(139, 92, 246, 0.3);
+        }
+        #spin-btn:hover:not(:disabled) {
+            background: rgba(139, 92, 246, 0.15);
+            box-shadow: 0 0 24px rgba(139, 92, 246, 0.5);
+        }
+        #spin-btn:active:not(:disabled) { transform: translate(-50%, -50%) scale(0.95); }
+        #spin-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .wheel-msg {
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--muted);
+            text-align: center;
+            min-height: 20px;
+        }
+
+        /* ── Today's Pick Banner ── */
+        .todays-pick {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: rgba(52, 211, 153, 0.08);
+            border: 1px solid rgba(52, 211, 153, 0.25);
+            border-radius: var(--radius);
+            margin-bottom: 12px;
+        }
+        .todays-pick.show { display: flex; }
+        .todays-pick .tp-icon { font-size: 20px; flex-shrink: 0; }
+        .todays-pick .tp-body { flex: 1; min-width: 0; }
+        .todays-pick .tp-label { font-size: 11px; color: var(--emerald); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .todays-pick .tp-name { font-size: 16px; font-weight: 700; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .todays-pick .tp-dismiss {
+            font-size: 18px;
+            color: var(--muted);
+            padding: 4px;
+            flex-shrink: 0;
+        }
+
+        /* ── Tabs ── */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            background: var(--surface);
+            border-radius: var(--radius-sm);
+            margin-bottom: 12px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 8px 0;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            transition: all 0.2s;
+        }
+        .tab-btn.active { background: var(--violet); color: var(--text); }
+
+        /* ── Options Panel ── */
+        .panel { display: none; }
+        .panel.active { display: block; }
+        .add-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .add-input {
+            flex: 1;
+            padding: 10px 14px;
+            background: var(--surface);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            color: var(--text);
+            transition: border-color 0.2s;
+        }
+        .add-input::placeholder { color: var(--muted); }
+        .add-input:focus { border-color: var(--violet); }
+        .add-btn {
+            width: 40px;
+            border-radius: var(--radius-sm);
+            background: var(--violet);
+            color: var(--text);
+            font-size: 22px;
+            font-weight: 600;
+            flex-shrink: 0;
+            transition: opacity 0.2s;
+        }
+        .add-btn:hover { opacity: 0.85; }
+
+        /* Option Item */
+        .opt-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: var(--surface);
+            border: 1px solid rgba(255,255,255,0.04);
+            border-radius: var(--radius-sm);
+            margin-bottom: 6px;
+            transition: opacity 0.3s, border-color 0.2s;
+        }
+        .opt-item.used { opacity: 0.4; }
+        .opt-item.used .opt-name { text-decoration: line-through; }
+
+        /* Used toggle (switch) */
+        .used-toggle {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+        .used-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .used-toggle .slider {
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .used-toggle .slider::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--muted);
+            transition: transform 0.3s, background 0.3s;
+        }
+        .used-toggle input:checked + .slider { background: rgba(52, 211, 153, 0.3); }
+        .used-toggle input:checked + .slider::after { transform: translateX(16px); background: var(--emerald); }
+
+        .opt-name {
+            flex: 1;
+            font-size: 14px;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .opt-actions { display: flex; gap: 4px; flex-shrink: 0; }
+        .opt-action-btn {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        .opt-action-btn:hover { background: rgba(255,255,255,0.08); }
+        .opt-action-btn.del:hover { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+
+        /* Edit inline */
+        .opt-edit-input {
+            flex: 1;
+            padding: 4px 8px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--violet);
+            border-radius: 4px;
+            font-size: 14px;
+            color: var(--text);
+        }
+
+        .reset-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-top: 12px;
+            border-radius: var(--radius-sm);
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--muted);
+            transition: all 0.2s;
+        }
+        .reset-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+        .empty-state {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--muted);
+        }
+        .empty-state .es-icon { font-size: 36px; margin-bottom: 10px; }
+        .empty-state p { font-size: 14px; line-height: 1.6; }
+
+        /* ── History ── */
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: var(--surface);
+            border-radius: var(--radius-sm);
+            margin-bottom: 6px;
+        }
+        .history-item .hi-name { font-size: 14px; font-weight: 500; }
+        .history-item .hi-time { font-size: 12px; color: var(--muted); }
+
+        /* ── Modals / Overlays ── */
+        .overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            opacity: 0;
+            transition: opacity 0.25s;
+        }
+        .overlay.show { display: flex; opacity: 1; }
+        .modal {
+            background: var(--surface);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: var(--radius);
+            width: 100%;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 24px;
+            transform: translateY(10px);
+            transition: transform 0.25s;
+        }
+        .overlay.show .modal { transform: translateY(0); }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-close {
+            font-size: 20px;
+            color: var(--muted);
+            padding: 4px;
+            transition: color 0.2s;
+        }
+        .modal-close:hover { color: var(--text); }
+
+        /* List manager */
+        .lm-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: var(--radius-sm);
+            margin-bottom: 6px;
+        }
+        .lm-item.active-list { border-color: rgba(139, 92, 246, 0.4); background: rgba(139, 92, 246, 0.06); }
+        .lm-name {
+            flex: 1;
+            font-size: 14px;
+            font-weight: 500;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .lm-name:hover { color: var(--violet); }
+        .lm-edit-input {
+            flex: 1;
+            padding: 4px 8px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--violet);
+            border-radius: 4px;
+            font-size: 14px;
+            color: var(--text);
+        }
+        .lm-add {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .lm-add input {
+            flex: 1;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            color: var(--text);
+        }
+        .lm-add input::placeholder { color: var(--muted); }
+        .lm-add input:focus { border-color: var(--violet); }
+        .lm-add button {
+            padding: 10px 16px;
+            background: var(--violet);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        /* ── Result Modal ── */
+        .result-card {
+            text-align: center;
+            position: relative;
+        }
+        .result-card .rc-subtitle {
+            font-size: 14px;
+            color: var(--muted);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .result-card .rc-name {
+            font-size: 32px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+        .result-card .rc-subtext {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 24px;
+            font-style: italic;
+        }
+        .result-card .rc-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .rc-btn {
+            padding: 14px 24px;
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            font-weight: 600;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        .rc-btn.primary {
+            background: var(--violet);
+            color: var(--text);
+        }
+        .rc-btn.primary:hover { opacity: 0.9; }
+        .rc-btn.lock {
+            background: var(--emerald);
+            color: #0B0B12;
+        }
+        .rc-btn.lock:hover { opacity: 0.9; }
+        .rc-btn.secondary {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .rc-btn.secondary:hover { border-color: var(--violet); }
+        .rc-btn.mark-used {
+            background: rgba(52, 211, 153, 0.1);
+            border: 1px solid rgba(52, 211, 153, 0.3);
+            color: var(--emerald);
+        }
+        .rc-btn.mark-used:hover { background: rgba(52, 211, 153, 0.2); }
+        .rc-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.08);
+            margin: 8px 0;
+        }
+
+        /* Lock-in animation */
+        @keyframes lockIn {
+            0% { transform: scale(1); }
+            20% { transform: scale(1.06); border-color: var(--emerald); box-shadow: 0 0 40px rgba(52, 211, 153, 0.4); }
+            50% { transform: scale(0.97); }
+            100% { transform: scale(1); border-color: var(--emerald); box-shadow: 0 0 20px rgba(52, 211, 153, 0.2); }
+        }
+        .modal.locked-in {
+            animation: lockIn 0.6s ease-out forwards;
+            border-color: var(--emerald);
+        }
+
+        /* Lock icon animation */
+        @keyframes lockSnap {
+            0% { transform: rotate(-20deg) scale(0.5); opacity: 0; }
+            50% { transform: rotate(5deg) scale(1.2); }
+            100% { transform: rotate(0deg) scale(1); opacity: 1; }
+        }
+        .lock-icon { animation: lockSnap 0.4s ease-out forwards; display: inline-block; font-size: 36px; margin-bottom: 8px; }
+
+        /* ── Confirm dialog ── */
+        .confirm-bar {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        .confirm-bar button {
+            flex: 1;
+            padding: 10px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .confirm-bar .c-yes { background: var(--amber); color: #0B0B12; }
+        .confirm-bar .c-no { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); }
+
+        /* ── Animations ── */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeUp 0.3s ease-out; }
+
+        /* ── Dropdown ── */
+        .dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            border-radius: var(--radius-sm);
+            z-index: 20;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        .dropdown.open { display: block; }
+        .dd-item {
+            padding: 10px 14px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .dd-item:hover { background: rgba(139, 92, 246, 0.1); }
+        .dd-item.active { color: var(--violet); font-weight: 600; }
+        .dd-item.active::before { content: '●'; font-size: 8px; }
+
+        /* ── Responsive ── */
+        @media (min-width: 600px) {
+            #app { padding: 0 32px 48px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <h1>The<span>Spin</span></h1>
+            <div class="list-select-wrap">
+                <button class="list-select-btn" id="list-select-btn" onclick="toggleDropdown()">
+                    No lists yet
+                </button>
+                <div class="dropdown" id="list-dropdown"></div>
+            </div>
+            <button class="header-btn" onclick="openListManager()" title="Manage lists">⚙</button>
+        </header>
+
+        <!-- Today's Pick Banner -->
+        <div class="todays-pick" id="todays-pick">
+            <span class="tp-icon">🔒</span>
+            <div class="tp-body">
+                <div class="tp-label">Today's Pick</div>
+                <div class="tp-name" id="tp-name"></div>
+            </div>
+            <button class="tp-dismiss" onclick="dismissTodaysPick()" title="Dismiss">×</button>
+        </div>
+
+        <!-- Wheel -->
+        <section class="wheel-section">
+            <div class="wheel-wrap" id="wheel-wrap">
+                <div class="pointer">
+                    <svg width="22" height="28" viewBox="0 0 22 28">
+                        <defs>
+                            <filter id="glow"><feGaussianBlur stdDeviation="1.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                        </defs>
+                        <path d="M11 28 L1 2 Q0 0 2 0 L20 0 Q22 0 21 2 Z" fill="#8B5CF6" filter="url(#glow)"/>
+                    </svg>
+                </div>
+                <canvas id="wheel" width="320" height="320"></canvas>
+                <button id="spin-btn" onclick="startSpin()">SPIN</button>
+            </div>
+            <div class="wheel-msg" id="wheel-msg"></div>
+        </section>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('options', this)">Options</button>
+            <button class="tab-btn" onclick="switchTab('history', this)">History</button>
+        </div>
+
+        <!-- Options Panel -->
+        <section class="panel active" id="panel-options">
+            <div class="add-bar">
+                <input class="add-input" id="option-input" type="text" placeholder="Add an option…" maxlength="80"
+                       onkeydown="if(event.key==='Enter')addOption()">
+                <button class="add-btn" onclick="addOption()">+</button>
+            </div>
+            <ul id="options-list"></ul>
+            <button class="reset-btn" id="reset-btn" onclick="confirmResetAll()">Reset All Used</button>
+        </section>
+
+        <!-- History Panel -->
+        <section class="panel" id="panel-history">
+            <div id="history-content"></div>
+        </section>
+    </div>
+
+    <!-- Result Overlay -->
+    <div class="overlay" id="result-overlay">
+        <div class="modal" id="result-modal">
+            <div class="result-card" id="result-card"></div>
+        </div>
+    </div>
+
+    <!-- List Manager Overlay -->
+    <div class="overlay" id="list-overlay" onclick="if(event.target===this)closeListManager()">
+        <div class="modal">
+            <div class="modal-title">
+                <span>Your Lists</span>
+                <button class="modal-close" onclick="closeListManager()">×</button>
+            </div>
+            <div class="lm-add">
+                <input type="text" id="new-list-input" placeholder="New list name…" maxlength="40"
+                       onkeydown="if(event.key==='Enter')createList()">
+                <button onclick="createList()">Create</button>
+            </div>
+            <div id="list-manager-items"></div>
+        </div>
+    </div>
+
+    <script>
+    /* ═══════════════════════════════════════════════
+       CONSTANTS
+       ═══════════════════════════════════════════════ */
+    const STORAGE_KEY = 'thespin_data';
+    const SEGMENT_COLORS = [
+        { bg: '#1E1245', glow: '#8B5CF6' },
+        { bg: '#082F37', glow: '#22D3EE' },
+        { bg: '#3D1040', glow: '#D946EF' },
+        { bg: '#3D2506', glow: '#F59E0B' },
+        { bg: '#0D2847', glow: '#3B82F6' },
+        { bg: '#1A3326', glow: '#34D399' },
+    ];
+
+    /* ═══════════════════════════════════════════════
+       STATE
+       ═══════════════════════════════════════════════ */
+    let data = loadData();
+    let rotation = 0;
+    let spinning = false;
+    let spinState = 'idle'; // idle | spinning | result-first | result-final | locked
+    let currentResult = null; // { option, isRespin }
+    let canvasSize = 320;
+
+    function genId() { return Math.random().toString(36).substring(2, 11); }
+
+    function loadData() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && parsed.lists) return parsed;
+            }
+        } catch(e) {}
+        return { activeListId: null, lists: {} };
+    }
+
+    function saveData() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function getActiveList() {
+        if (!data.activeListId || !data.lists[data.activeListId]) {
+            const ids = Object.keys(data.lists);
+            data.activeListId = ids.length > 0 ? ids[0] : null;
+        }
+        return data.activeListId ? data.lists[data.activeListId] : null;
+    }
+
+    function getUnusedOptions() {
+        const list = getActiveList();
+        if (!list) return [];
+        return list.options.filter(o => !o.used);
+    }
+
+    /* ═══════════════════════════════════════════════
+       LIST CRUD
+       ═══════════════════════════════════════════════ */
+    function createList() {
+        const input = document.getElementById('new-list-input');
+        const name = input.value.trim();
+        if (!name) return;
+        const id = genId();
+        data.lists[id] = { name, createdAt: Date.now(), options: [], history: [], todaysPick: null };
+        data.activeListId = id;
+        input.value = '';
+        saveData();
+        renderAll();
+    }
+
+    function renameList(id, newName) {
+        newName = newName.trim();
+        if (!newName || !data.lists[id]) return;
+        data.lists[id].name = newName;
+        saveData();
+        renderAll();
+    }
+
+    function deleteList(id) {
+        if (!confirm(`Delete "${data.lists[id].name}" and all its options?`)) return;
+        delete data.lists[id];
+        if (data.activeListId === id) data.activeListId = null;
+        saveData();
+        renderAll();
+    }
+
+    function switchList(id) {
+        data.activeListId = id;
+        spinState = 'idle';
+        currentResult = null;
+        closeDropdown();
+        saveData();
+        renderAll();
+    }
+
+    /* ═══════════════════════════════════════════════
+       OPTION CRUD
+       ═══════════════════════════════════════════════ */
+    function addOption() {
+        const input = document.getElementById('option-input');
+        const name = input.value.trim();
+        if (!name) return;
+        const list = getActiveList();
+        if (!list) return;
+
+        // Warn on duplicate
+        const dup = list.options.find(o => o.name.toLowerCase() === name.toLowerCase());
+        if (dup && !confirm(`"${name}" already exists in this list. Add it anyway?`)) return;
+
+        list.options.push({ id: genId(), name, used: false, lastPickedAt: null });
+        input.value = '';
+        saveData();
+        renderAll();
+    }
+
+    function deleteOption(optId) {
+        const list = getActiveList();
+        if (!list) return;
+        list.options = list.options.filter(o => o.id !== optId);
+        saveData();
+        renderAll();
+    }
+
+    function toggleUsed(optId) {
+        const list = getActiveList();
+        if (!list) return;
+        const opt = list.options.find(o => o.id === optId);
+        if (opt) opt.used = !opt.used;
+        saveData();
+        renderAll();
+    }
+
+    function startEditOption(optId) {
+        const list = getActiveList();
+        if (!list) return;
+        const opt = list.options.find(o => o.id === optId);
+        if (!opt) return;
+        // Re-render with edit mode
+        renderOptionsList(optId);
+    }
+
+    function saveEditOption(optId) {
+        const input = document.getElementById('edit-' + optId);
+        if (!input) return;
+        const newName = input.value.trim();
+        if (!newName) return;
+        const list = getActiveList();
+        if (!list) return;
+
+        // Warn on duplicate
+        const dup = list.options.find(o => o.id !== optId && o.name.toLowerCase() === newName.toLowerCase());
+        if (dup && !confirm(`"${newName}" already exists in this list. Save anyway?`)) return;
+
+        const opt = list.options.find(o => o.id === optId);
+        if (opt) opt.name = newName;
+        saveData();
+        renderAll();
+    }
+
+    function confirmResetAll() {
+        const list = getActiveList();
+        if (!list) return;
+        const usedCount = list.options.filter(o => o.used).length;
+        if (usedCount === 0) return;
+        if (confirm('This makes every option available again. Continue?')) {
+            list.options.forEach(o => o.used = false);
+            saveData();
+            renderAll();
+        }
+    }
+
+    /* ═══════════════════════════════════════════════
+       WHEEL DRAWING
+       ═══════════════════════════════════════════════ */
+    function setupCanvas() {
+        const canvas = document.getElementById('wheel');
+        const wrap = document.getElementById('wheel-wrap');
+        const maxSize = Math.min(wrap.parentElement.clientWidth - 16, 380);
+        canvasSize = maxSize;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = maxSize * dpr;
+        canvas.height = maxSize * dpr;
+        canvas.style.width = maxSize + 'px';
+        canvas.style.height = maxSize + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        return ctx;
+    }
+
+    function drawWheel() {
+        const canvas = document.getElementById('wheel');
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const size = canvasSize;
+        ctx.save();
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, size, size);
+
+        const cx = size / 2;
+        const cy = size / 2;
+        const radius = size / 2 - 14;
+        const options = getUnusedOptions();
+        const n = options.length;
+
+        if (n === 0) {
+            drawEmptyWheel(ctx, cx, cy, radius);
+            ctx.restore();
+            return;
+        }
+        if (n === 1) {
+            drawSingleWheel(ctx, cx, cy, radius, options[0]);
+            ctx.restore();
+            return;
+        }
+
+        const segAngle = (2 * Math.PI) / n;
+
+        // Outer ring glow
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius + 2, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(139, 92, 246, 0.15)';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = '#8B5CF6';
+        ctx.shadowBlur = 20;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Draw segments
+        for (let i = 0; i < n; i++) {
+            const startAngle = i * segAngle + rotation;
+            const endAngle = (i + 1) * segAngle + rotation;
+            const color = SEGMENT_COLORS[i % SEGMENT_COLORS.length];
+
+            // Fill
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, radius, startAngle, endAngle);
+            ctx.closePath();
+            ctx.fillStyle = color.bg;
+            ctx.fill();
+
+            // Glowing border line (spoke)
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + Math.cos(startAngle) * radius, cy + Math.sin(startAngle) * radius);
+            ctx.strokeStyle = color.glow;
+            ctx.lineWidth = 1;
+            ctx.shadowColor = color.glow;
+            ctx.shadowBlur = 4;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Arc border
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius - 1, startAngle, endAngle);
+            ctx.strokeStyle = color.glow;
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = color.glow;
+            ctx.shadowBlur = 5;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Text
+            const midAngle = startAngle + segAngle / 2;
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(midAngle);
+
+            const maxLen = n > 10 ? 8 : n > 6 ? 12 : 16;
+            const fontSize = n > 10 ? 10 : n > 6 ? 12 : 14;
+            let label = options[i].name;
+            if (label.length > maxLen) label = label.slice(0, maxLen - 1) + '…';
+
+            ctx.fillStyle = '#F5F5F7';
+            ctx.font = `600 ${fontSize}px "Space Grotesk", sans-serif`;
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'center';
+
+            const textR = radius * 0.62;
+            let normMid = ((midAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+            if (normMid > Math.PI / 2 && normMid < 3 * Math.PI / 2) {
+                ctx.rotate(Math.PI);
+                ctx.fillText(label, -textR, 0);
+            } else {
+                ctx.fillText(label, textR, 0);
+            }
+            ctx.restore();
+        }
+
+        // Center hub
+        const hubR = n > 8 ? radius * 0.15 : radius * 0.18;
+        ctx.beginPath();
+        ctx.arc(cx, cy, hubR, 0, 2 * Math.PI);
+        ctx.fillStyle = '#16161F';
+        ctx.fill();
+        ctx.strokeStyle = '#8B5CF6';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#8B5CF6';
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.restore();
+    }
+
+    function drawEmptyWheel(ctx, cx, cy, r) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 8]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#9CA3AF';
+        ctx.font = '14px "Space Grotesk", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Add options to spin', cx, cy);
+    }
+
+    function drawSingleWheel(ctx, cx, cy, r, option) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+        ctx.fillStyle = SEGMENT_COLORS[0].bg;
+        ctx.fill();
+        ctx.strokeStyle = SEGMENT_COLORS[0].glow;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = SEGMENT_COLORS[0].glow;
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = '#F5F5F7';
+        ctx.font = '600 16px "Space Grotesk", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let label = option.name;
+        if (label.length > 20) label = label.slice(0, 18) + '…';
+        ctx.fillText(label, cx, cy);
+    }
+
+    /* ═══════════════════════════════════════════════
+       SPIN ANIMATION
+       ═══════════════════════════════════════════════ */
+    function startSpin() {
+        if (spinning) return;
+        const unused = getUnusedOptions();
+        if (unused.length < 2) return;
+
+        const n = unused.length;
+        const segAngle = (2 * Math.PI) / n;
+        const winnerIdx = Math.floor(Math.random() * n);
+
+        // Calculate target rotation
+        const segCenter = (winnerIdx + 0.5) * segAngle;
+        let targetNorm = ((-Math.PI / 2 - segCenter) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        let currentNorm = ((rotation % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+        let delta = targetNorm - currentNorm;
+        if (delta <= 0) delta += 2 * Math.PI;
+        const extraRotations = (4 + Math.floor(Math.random() * 3)) * 2 * Math.PI;
+        delta += extraRotations;
+
+        const startRot = rotation;
+        const duration = 3500;
+        const startTime = performance.now();
+
+        spinning = true;
+        spinState = 'spinning';
+        document.getElementById('spin-btn').disabled = true;
+        document.getElementById('wheel-msg').textContent = '';
+
+        function animate(now) {
+            const elapsed = now - startTime;
+            const t = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - t, 3);
+            rotation = startRot + delta * eased;
+            drawWheel();
+
+            if (t < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                spinning = false;
+                rotation = startRot + delta;
+                drawWheel();
+                document.getElementById('spin-btn').disabled = false;
+                onSpinComplete(unused[winnerIdx]);
+            }
+        }
+        requestAnimationFrame(animate);
+    }
+
+    function onSpinComplete(winner) {
+        const isRespin = (spinState === 'spinning' && currentResult && currentResult.isRespin);
+        if (isRespin) {
+            spinState = 'result-final';
+        } else {
+            spinState = 'result-first';
+        }
+        currentResult = { option: winner, isRespin: spinState === 'result-final' };
+        showResultModal();
+    }
+
+    /* ═══════════════════════════════════════════════
+       RESULT / COMMITMENT FLOW
+       ═══════════════════════════════════════════════ */
+    function showResultModal() {
+        const overlay = document.getElementById('result-overlay');
+        const modal = document.getElementById('result-modal');
+        const card = document.getElementById('result-card');
+        modal.classList.remove('locked-in');
+
+        let html = '';
+        if (spinState === 'result-first') {
+            html = `
+                <p class="rc-subtitle">The wheel has spoken.</p>
+                <h2 class="rc-name">${escHtml(currentResult.option.name)}</h2>
+                <p class="rc-subtext">Your destiny awaits.</p>
+                <div class="rc-actions">
+                    <button class="rc-btn lock" onclick="lockIn()">🔒 Lock It In</button>
+                    <button class="rc-btn secondary" onclick="respin()">🎲 Spin Again (1 left)</button>
+                </div>
+            `;
+        } else if (spinState === 'result-final') {
+            html = `
+                <p class="rc-subtitle">The wheel has spoken — again.</p>
+                <h2 class="rc-name">${escHtml(currentResult.option.name)}</h2>
+                <p class="rc-subtext">No more re-spins — this one's yours.</p>
+                <div class="rc-actions">
+                    <button class="rc-btn lock" onclick="lockIn()">🔒 Lock It In</button>
+                </div>
+            `;
+        } else if (spinState === 'locked') {
+            html = `
+                <div class="lock-icon">🔒</div>
+                <p class="rc-subtitle" style="color: var(--emerald);">Locked in — enjoy it.</p>
+                <h2 class="rc-name">${escHtml(currentResult.option.name)}</h2>
+                <p class="rc-subtext"></p>
+                <div class="rc-actions">
+                    <button class="rc-btn mark-used" onclick="markResultUsed()">✓ Mark as Used</button>
+                    <div class="rc-divider"></div>
+                    <button class="rc-btn secondary" onclick="closeResult()">Done</button>
+                </div>
+            `;
+        }
+
+        card.innerHTML = html;
+        overlay.classList.add('show');
+    }
+
+    function respin() {
+        const overlay = document.getElementById('result-overlay');
+        overlay.classList.remove('show');
+        currentResult = { ...currentResult, isRespin: true };
+        spinState = 'spinning';
+        // Short delay before re-spinning
+        setTimeout(() => startSpin(), 300);
+    }
+
+    function lockIn() {
+        spinState = 'locked';
+        const modal = document.getElementById('result-modal');
+        modal.classList.add('locked-in');
+
+        // Record in history
+        const list = getActiveList();
+        if (list) {
+            if (!list.history) list.history = [];
+            list.history.unshift({ optionName: currentResult.option.name, pickedAt: Date.now() });
+            if (list.history.length > 10) list.history = list.history.slice(0, 10);
+            list.todaysPick = { name: currentResult.option.name, pickedAt: Date.now() };
+            currentResult.option.lastPickedAt = Date.now();
+            saveData();
+        }
+
+        showResultModal();
+        renderTodaysPick();
+        renderHistory();
+    }
+
+    function markResultUsed() {
+        if (!currentResult) return;
+        const list = getActiveList();
+        if (!list) return;
+        const opt = list.options.find(o => o.id === currentResult.option.id);
+        if (opt) {
+            opt.used = true;
+            saveData();
+        }
+        closeResult();
+        renderAll();
+    }
+
+    function closeResult() {
+        document.getElementById('result-overlay').classList.remove('show');
+        spinState = 'idle';
+        currentResult = null;
+    }
+
+    function dismissTodaysPick() {
+        const list = getActiveList();
+        if (list) {
+            list.todaysPick = null;
+            saveData();
+        }
+        renderTodaysPick();
+    }
+
+    /* ═══════════════════════════════════════════════
+       RENDERING
+       ═══════════════════════════════════════════════ */
+    function renderAll() {
+        renderListSelector();
+        renderTodaysPick();
+        renderOptionsList();
+        renderHistory();
+        updateWheelState();
+        drawWheel();
+    }
+
+    function renderListSelector() {
+        const btn = document.getElementById('list-select-btn');
+        const list = getActiveList();
+        btn.textContent = list ? list.name : 'No lists yet — tap ⚙ to create one';
+    }
+
+    function renderTodaysPick() {
+        const el = document.getElementById('todays-pick');
+        const list = getActiveList();
+        if (list && list.todaysPick) {
+            document.getElementById('tp-name').textContent = list.todaysPick.name;
+            el.classList.add('show');
+        } else {
+            el.classList.remove('show');
+        }
+    }
+
+    function renderOptionsList(editId = null) {
+        const ul = document.getElementById('options-list');
+        const list = getActiveList();
+
+        if (!list) {
+            ul.innerHTML = `<div class="empty-state"><div class="es-icon">📋</div><p>Create a list to get started.<br>Tap ⚙ in the header.</p></div>`;
+            document.getElementById('reset-btn').style.display = 'none';
+            document.getElementById('option-input').disabled = true;
+            return;
+        }
+
+        document.getElementById('option-input').disabled = false;
+
+        if (list.options.length === 0) {
+            ul.innerHTML = `<div class="empty-state"><div class="es-icon">✨</div><p>Add some options below,<br>then spin the wheel!</p></div>`;
+            document.getElementById('reset-btn').style.display = 'none';
+            return;
+        }
+
+        document.getElementById('reset-btn').style.display = list.options.some(o => o.used) ? 'block' : 'none';
+
+        ul.innerHTML = list.options.map(opt => {
+            const isEditing = editId === opt.id;
+            return `
+                <li class="opt-item ${opt.used ? 'used' : ''} fade-up">
+                    <label class="used-toggle" title="${opt.used ? 'Mark available' : 'Mark used'}">
+                        <input type="checkbox" ${opt.used ? 'checked' : ''} onchange="toggleUsed('${opt.id}')">
+                        <span class="slider"></span>
+                    </label>
+                    ${isEditing
+                        ? `<input class="opt-edit-input" id="edit-${opt.id}" value="${escAttr(opt.name)}" maxlength="80"
+                            onkeydown="if(event.key==='Enter')saveEditOption('${opt.id}');if(event.key==='Escape')renderOptionsList()"
+                            onblur="saveEditOption('${opt.id}')">`
+                        : `<span class="opt-name">${escHtml(opt.name)}</span>`
+                    }
+                    <div class="opt-actions">
+                        ${!isEditing ? `<button class="opt-action-btn" onclick="startEditOption('${opt.id}')" title="Edit">✎</button>` : ''}
+                        <button class="opt-action-btn del" onclick="deleteOption('${opt.id}')" title="Delete">🗑</button>
+                    </div>
+                </li>
+            `;
+        }).join('');
+
+        // Auto-focus edit input
+        if (editId) {
+            const inp = document.getElementById('edit-' + editId);
+            if (inp) { inp.focus(); inp.select(); }
+        }
+    }
+
+    function renderHistory() {
+        const container = document.getElementById('history-content');
+        const list = getActiveList();
+
+        if (!list || !list.history || list.history.length === 0) {
+            container.innerHTML = `<div class="empty-state"><div class="es-icon">📜</div><p>No picks yet.<br>Spin the wheel and lock in a choice!</p></div>`;
+            return;
+        }
+
+        container.innerHTML = list.history.map(h => `
+            <div class="history-item fade-up">
+                <span class="hi-name">${escHtml(h.optionName)}</span>
+                <span class="hi-time">${formatTime(h.pickedAt)}</span>
+            </div>
+        `).join('');
+    }
+
+    function updateWheelState() {
+        const btn = document.getElementById('spin-btn');
+        const msg = document.getElementById('wheel-msg');
+        const unused = getUnusedOptions();
+        const list = getActiveList();
+
+        if (!list) {
+            btn.disabled = true;
+            msg.textContent = '';
+            return;
+        }
+
+        if (unused.length === 0) {
+            btn.disabled = true;
+            msg.textContent = 'No options available — add some or reset used ones.';
+        } else if (unused.length === 1) {
+            btn.disabled = true;
+            msg.textContent = `Only 1 option left — add more to spin.`;
+        } else {
+            btn.disabled = spinning;
+            msg.textContent = `${unused.length} options on the wheel`;
+        }
+    }
+
+    /* ═══════════════════════════════════════════════
+       LIST MANAGER MODAL
+       ═══════════════════════════════════════════════ */
+    function openListManager() {
+        renderListManagerItems();
+        document.getElementById('list-overlay').classList.add('show');
+        document.getElementById('new-list-input').focus();
+    }
+
+    function closeListManager() {
+        document.getElementById('list-overlay').classList.remove('show');
+    }
+
+    function renderListManagerItems() {
+        const container = document.getElementById('list-manager-items');
+        const ids = Object.keys(data.lists);
+        if (ids.length === 0) {
+            container.innerHTML = `<p style="text-align:center;color:var(--muted);padding:16px;font-size:14px;">No lists yet. Create one above!</p>`;
+            return;
+        }
+        container.innerHTML = ids.map(id => {
+            const list = data.lists[id];
+            const isActive = id === data.activeListId;
+            return `
+                <div class="lm-item ${isActive ? 'active-list' : ''}">
+                    <span class="lm-name" onclick="switchListFromManager('${id}')" title="Switch to this list">${escHtml(list.name)}</span>
+                    <button class="opt-action-btn" onclick="startRenameList('${id}')" title="Rename">✎</button>
+                    <button class="opt-action-btn del" onclick="deleteListFromManager('${id}')" title="Delete">🗑</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function switchListFromManager(id) {
+        switchList(id);
+        closeListManager();
+    }
+
+    function deleteListFromManager(id) {
+        deleteList(id);
+        renderListManagerItems();
+    }
+
+    function startRenameList(id) {
+        const container = document.getElementById('list-manager-items');
+        const items = container.querySelectorAll('.lm-item');
+        const ids = Object.keys(data.lists);
+        const idx = ids.indexOf(id);
+        if (idx < 0) return;
+        const item = items[idx];
+        const nameEl = item.querySelector('.lm-name');
+        const currentName = data.lists[id].name;
+
+        nameEl.outerHTML = `
+            <input class="lm-edit-input" id="lm-edit-${id}" value="${escAttr(currentName)}"
+                onkeydown="if(event.key==='Enter'){renameList('${id}',this.value);renderListManagerItems()}
+                           if(event.key==='Escape')renderListManagerItems()"
+                onblur="renameList('${id}',this.value);renderListManagerItems()">
+        `;
+        const inp = document.getElementById('lm-edit-' + id);
+        if (inp) { inp.focus(); inp.select(); }
+    }
+
+    /* ═══════════════════════════════════════════════
+       DROPDOWN
+       ═══════════════════════════════════════════════ */
+    function toggleDropdown() {
+        const dd = document.getElementById('list-dropdown');
+        if (dd.classList.contains('open')) {
+            closeDropdown();
+            return;
+        }
+        const ids = Object.keys(data.lists);
+        if (ids.length === 0) {
+            openListManager();
+            return;
+        }
+        dd.innerHTML = ids.map(id => `
+            <div class="dd-item ${id === data.activeListId ? 'active' : ''}" onclick="switchList('${id}')">
+                ${escHtml(data.lists[id].name)}
+            </div>
+        `).join('');
+        dd.classList.add('open');
+        // Close on outside click
+        setTimeout(() => document.addEventListener('click', closeDropdownOutside, { once: true }), 0);
+    }
+
+    function closeDropdown() {
+        document.getElementById('list-dropdown').classList.remove('open');
+    }
+
+    function closeDropdownOutside(e) {
+        if (!document.getElementById('list-dropdown').contains(e.target) &&
+            e.target !== document.getElementById('list-select-btn')) {
+            closeDropdown();
+        }
+    }
+
+    /* ═══════════════════════════════════════════════
+       TABS
+       ═══════════════════════════════════════════════ */
+    function switchTab(tab, btnEl) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btnEl.classList.add('active');
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('panel-' + tab).classList.add('active');
+    }
+
+    /* ═══════════════════════════════════════════════
+       UTILITIES
+       ═══════════════════════════════════════════════ */
+    function escHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+    function escAttr(s) { return s.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+    function formatTime(ts) {
+        const d = new Date(ts);
+        const now = new Date();
+        const diff = now - d;
+        if (diff < 60000) return 'Just now';
+        if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+        if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+        if (diff < 604800000) return Math.floor(diff / 86400000) + 'd ago';
+        return d.toLocaleDateString();
+    }
+
+    /* ═══════════════════════════════════════════════
+       INIT
+       ═══════════════════════════════════════════════ */
+    function init() {
+        setupCanvas();
+        // If no lists, create a default one
+        if (Object.keys(data.lists).length === 0) {
+            const id = genId();
+            data.lists[id] = { name: 'My First List', createdAt: Date.now(), options: [], history: [], todaysPick: null };
+            data.activeListId = id;
+            saveData();
+        }
+        renderAll();
+
+        // Handle resize
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { setupCanvas(); drawWheel(); }, 150);
+        });
+    }
+
+    // Go
+    init();
+
+    // Register service worker for PWA / offline support
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+    }
+    </script>
+</body>
+</html>

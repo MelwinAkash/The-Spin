@@ -485,16 +485,43 @@
         .lm-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 10px 12px;
+            gap: 12px;
+            padding: 10px 12px 10px 8px;
             background: rgba(255,255,255,0.03);
             border: 1px solid rgba(255,255,255,0.06);
             border-radius: var(--radius-sm);
             margin-bottom: 6px;
+            position: relative; /* for FLIP transitions */
         }
         .lm-item.active-list { border-color: rgba(139, 92, 246, 0.4); background: rgba(139, 92, 246, 0.06); }
+        .drag-handle {
+            cursor: grab;
+            touch-action: none;
+            color: var(--muted);
+            font-size: 20px;
+            user-select: none;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        .drag-handle:hover { opacity: 1; }
+        .drag-handle:active { cursor: grabbing; }
+        .lm-item.dragging {
+            z-index: 10000;
+            pointer-events: none;
+            box-shadow: 0 16px 32px rgba(0,0,0,0.5);
+            opacity: 0.9;
+        }
+        .lm-placeholder {
+            background: rgba(255,255,255,0.05);
+            border: 2px dashed rgba(255,255,255,0.1);
+            border-radius: var(--radius-sm);
+            margin-bottom: 6px;
+        }
+        
         .lm-name {
-            flex: 1;
             font-size: 14px;
             font-weight: 500;
             min-width: 0;
@@ -504,6 +531,55 @@
             cursor: pointer;
         }
         .lm-name:hover { color: var(--violet); }
+        
+        /* Badges & Bonus */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+        .perm-badge {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--emerald);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .daily-badge {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60A5FA;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        .bonus-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.15);
+            color: var(--muted);
+            padding: 4px 10px;
+            font-size: 11px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 6px;
+            align-self: flex-start;
+        }
+        .bonus-btn:not(:disabled):hover {
+            border-color: var(--text);
+            color: var(--text);
+        }
+        .bonus-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .bonus-btn.active {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.1);
+            color: var(--muted);
+        }
         .lm-edit-input {
             flex: 1;
             padding: 4px 8px;
@@ -931,6 +1007,7 @@
 
         const id = genId();
         data.lists[id] = { name, createdAt: Date.now(), options: [], history: [], todaysPick: null, lastLockedInAt: null };
+        data.listOrder.push(id);
         data.activeListId = id;
         input.value = '';
         clearListError();
@@ -980,7 +1057,17 @@
     function deleteList(id) {
         if (!confirm(`Delete "${data.lists[id].name}" and all its options?`)) return;
         delete data.lists[id];
-        if (data.activeListId === id) data.activeListId = null;
+        data.listOrder = data.listOrder.filter(x => x !== id);
+        
+        if (data.dailyBonusListId === id) {
+            data.dailyBonusListId = null;
+            data.dailyBonusGrantedDate = null;
+        }
+        
+        if (data.activeListId === id) {
+            data.activeListId = data.listOrder.length > 0 ? data.listOrder[0] : null;
+        }
+        
         saveData();
         renderAll();
     }
@@ -1261,8 +1348,7 @@
         if (unused.length < 2) return;
 
         // Block if cooldown active
-        const list = getActiveList();
-        if (list && list.lastLockedInAt && (Date.now() - list.lastLockedInAt) < COOLDOWN_MS) return;
+        if (getCooldownRemaining() > 0) return;
 
         const n = unused.length;
         const segAngle = (2 * Math.PI) / n;
@@ -1446,7 +1532,14 @@
     function renderListSelector() {
         const btn = document.getElementById('list-select-btn');
         const list = getActiveList();
-        btn.textContent = list ? list.name : 'No lists yet — tap ⚙ to create one';
+        if (list) {
+            let badge = '';
+            if (list.permanentNoCooldown) badge = ' <span class="badge perm-badge" title="Permanent No Cooldown">∞ No Cooldown</span>';
+            else if (data.dailyBonusListId === list.id) badge = ' <span class="badge daily-badge" title="Daily No Cooldown">No Cooldown (Today)</span>';
+            btn.innerHTML = escHtml(list.name) + badge;
+        } else {
+            btn.textContent = 'No lists yet — tap ⚙ to create one';
+        }
     }
 
     function renderTodaysPick() {
@@ -1578,6 +1671,7 @@
     function getCooldownRemaining() {
         const list = getActiveList();
         if (!list || !list.lastLockedInAt) return 0;
+        if (isCooldownExempt(data.activeListId)) return 0;
         const elapsed = Date.now() - list.lastLockedInAt;
         return Math.max(0, COOLDOWN_MS - elapsed);
     }
@@ -1619,19 +1713,46 @@
 
     function renderListManagerItems() {
         const container = document.getElementById('list-manager-items');
-        const ids = Object.keys(data.lists);
-        if (ids.length === 0) {
+        if (!data.listOrder || data.listOrder.length === 0) {
             container.innerHTML = `<p style="text-align:center;color:var(--muted);padding:16px;font-size:14px;">No lists yet. Create one above!</p>`;
             return;
         }
-        container.innerHTML = ids.map(id => {
+        
+        checkDailyBonusReset();
+        const hasDaily = !!data.dailyBonusListId;
+        
+        container.innerHTML = data.listOrder.map(id => {
             const list = data.lists[id];
+            if (!list) return '';
+            
             const isActive = id === data.activeListId;
+            let badges = '';
+            let actionBtn = '';
+            
+            if (list.permanentNoCooldown) {
+                badges = `<span class="badge perm-badge">∞ No Cooldown</span>`;
+            } else if (data.dailyBonusListId === id) {
+                badges = `<span class="badge daily-badge">🔒 No Cooldown (Today)</span>`;
+                actionBtn = `<button class="bonus-btn active" disabled>Granted Today</button>`;
+            } else {
+                actionBtn = `<button class="bonus-btn" onclick="grantDailyBonus('${id}')" ${hasDaily ? 'disabled' : ''}>Set as today's no-cooldown list</button>`;
+            }
+            
             return `
-                <div class="lm-item ${isActive ? 'active-list' : ''}">
-                    <span class="lm-name" onclick="switchListFromManager('${id}')" title="Switch to this list">${escHtml(list.name)}</span>
-                    <button class="opt-action-btn" onclick="startRenameList('${id}')" title="Rename">✎</button>
-                    <button class="opt-action-btn del" onclick="deleteListFromManager('${id}')" title="Delete">🗑</button>
+                <div class="lm-item ${isActive ? 'active-list' : ''}" data-id="${id}">
+                    <div class="drag-handle" onpointerdown="startDrag(event, '${id}')" title="Drag to reorder">⠿</div>
+                    <div class="lm-content" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+                        <div style="display: flex; align-items: center;">
+                            <span class="lm-name" id="lm-name-${id}" onclick="switchListFromManager('${id}')" title="Switch to this list">${escHtml(list.name)}</span>
+                            ${badges}
+                        </div>
+                        ${actionBtn}
+                        <div id="lm-rename-error-${id}"></div>
+                    </div>
+                    <div class="lm-actions">
+                        <button class="opt-action-btn" onclick="startRenameList('${id}')" title="Rename">✎</button>
+                        <button class="opt-action-btn del" onclick="deleteListFromManager('${id}')" title="Delete">🗑</button>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -1648,29 +1769,159 @@
     }
 
     function startRenameList(id) {
-        const container = document.getElementById('list-manager-items');
-        const items = container.querySelectorAll('.lm-item');
-        const ids = Object.keys(data.lists);
-        const idx = ids.indexOf(id);
-        if (idx < 0) return;
-        const item = items[idx];
+        const item = document.querySelector(`.lm-item[data-id="${id}"]`);
+        if (!item) return;
         const nameEl = item.querySelector('.lm-name');
         const currentName = data.lists[id].name;
 
-        // Replace name span with input + error slot
+        // Replace name span with input
         const wrapper = document.createElement('div');
-        wrapper.style.flex = '1';
-        wrapper.style.minWidth = '0';
+        wrapper.style.display = 'flex';
+        wrapper.style.alignItems = 'center';
         wrapper.innerHTML = `
             <input class="lm-edit-input" id="lm-edit-${id}" value="${escAttr(currentName)}" style="width:100%"
                 onkeydown="if(event.key==='Enter'){renameList('${id}',this.value);if(!document.getElementById('lm-rename-error-${id}').innerHTML)renderListManagerItems()}
                            if(event.key==='Escape')renderListManagerItems()"
                 onblur="setTimeout(()=>{renameList('${id}',document.getElementById('lm-edit-${id}')?.value||'');if(!document.getElementById('lm-rename-error-${id}')?.innerHTML)renderListManagerItems()},100)">
-            <div id="lm-rename-error-${id}"></div>
         `;
         nameEl.replaceWith(wrapper);
         const inp = document.getElementById('lm-edit-' + id);
         if (inp) { inp.focus(); inp.select(); }
+    }
+
+    /* ═══════════════════════════════════════════════
+       DRAG AND DROP
+       ═══════════════════════════════════════════════ */
+    let dragInfo = null;
+
+    function startDrag(e, id) {
+        e.preventDefault();
+        const handle = e.target;
+        const item = handle.closest('.lm-item');
+        const container = item.parentNode;
+        
+        const rect = item.getBoundingClientRect();
+        
+        const placeholder = document.createElement('div');
+        placeholder.className = 'lm-placeholder';
+        placeholder.style.height = rect.height + 'px';
+        container.insertBefore(placeholder, item);
+        
+        const originalNextSibling = placeholder.nextElementSibling;
+        
+        item.classList.add('dragging');
+        item.style.position = 'fixed';
+        item.style.width = rect.width + 'px';
+        item.style.top = rect.top + 'px';
+        item.style.left = rect.left + 'px';
+        item.style.margin = '0';
+        
+        dragInfo = {
+            item, placeholder, container, id,
+            startY: e.clientY,
+            startTop: rect.top,
+            originalNextSibling
+        };
+        
+        document.addEventListener('pointermove', onDragMove);
+        document.addEventListener('pointerup', onDragEnd);
+        document.addEventListener('pointercancel', onDragCancel);
+    }
+
+    function onDragMove(e) {
+        if (!dragInfo) return;
+        const { item, placeholder, container, startY, startTop } = dragInfo;
+        
+        const dy = e.clientY - startY;
+        item.style.transform = `translateY(${dy}px) scale(1.03)`;
+        
+        const itemCenter = startTop + dy + item.offsetHeight / 2;
+        const siblings = [...container.querySelectorAll('.lm-item:not(.dragging)')];
+        
+        let targetSibling = null;
+        for (const sib of siblings) {
+            const rect = sib.getBoundingClientRect();
+            if (itemCenter < rect.top + rect.height / 2) {
+                targetSibling = sib;
+                break;
+            }
+        }
+        
+        if (targetSibling !== placeholder.nextElementSibling) {
+            const oldRects = new Map();
+            siblings.forEach(s => oldRects.set(s, s.getBoundingClientRect()));
+            
+            container.insertBefore(placeholder, targetSibling || null);
+            
+            siblings.forEach(s => {
+                const oldRect = oldRects.get(s);
+                const newRect = s.getBoundingClientRect();
+                const deltaY = oldRect.top - newRect.top;
+                if (deltaY !== 0) {
+                    s.style.transform = `translateY(${deltaY}px)`;
+                    s.style.transition = 'none';
+                    requestAnimationFrame(() => {
+                        s.style.transform = '';
+                        s.style.transition = 'transform 0.3s ease-out';
+                    });
+                }
+            });
+        }
+    }
+
+    function finishDrag() {
+        if (!dragInfo) return;
+        const { item, placeholder, container } = dragInfo;
+        
+        document.removeEventListener('pointermove', onDragMove);
+        document.removeEventListener('pointerup', onDragEnd);
+        document.removeEventListener('pointercancel', onDragCancel);
+        
+        const placeholderRect = placeholder.getBoundingClientRect();
+        const targetDy = placeholderRect.top - dragInfo.startTop;
+        
+        item.style.transition = 'transform 0.25s ease-out, box-shadow 0.25s ease-out, opacity 0.25s ease-out';
+        item.style.transform = `translateY(${targetDy}px) scale(1)`;
+        item.classList.remove('dragging');
+        
+        setTimeout(() => {
+            if (!item.parentNode) return;
+            item.style.position = '';
+            item.style.top = '';
+            item.style.left = '';
+            item.style.width = '';
+            item.style.margin = '';
+            item.style.transform = '';
+            item.style.transition = '';
+            
+            container.insertBefore(item, placeholder);
+            placeholder.remove();
+            
+            data.listOrder = [...container.querySelectorAll('.lm-item')].map(el => el.getAttribute('data-id'));
+            saveData();
+            
+            dragInfo = null;
+            renderAll();
+            renderListManagerItems(); // Re-render to ensure clean state
+            
+            // Sync dropdown if open
+            if (document.getElementById('list-dropdown').classList.contains('open')) {
+                toggleDropdown(); // close it
+                toggleDropdown(); // reopen it with new order
+            }
+        }, 250);
+    }
+
+    function onDragEnd() { finishDrag(); }
+    
+    function onDragCancel() {
+        if (!dragInfo) return;
+        if (dragInfo.originalNextSibling) {
+            dragInfo.container.insertBefore(dragInfo.placeholder, dragInfo.originalNextSibling);
+        } else {
+            dragInfo.container.appendChild(dragInfo.placeholder);
+        }
+        finishDrag();
     }
 
     /* ═══════════════════════════════════════════════
@@ -1682,16 +1933,18 @@
             closeDropdown();
             return;
         }
-        const ids = Object.keys(data.lists);
-        if (ids.length === 0) {
+        if (!data.listOrder || data.listOrder.length === 0) {
             openListManager();
             return;
         }
-        dd.innerHTML = ids.map(id => `
-            <div class="dd-item ${id === data.activeListId ? 'active' : ''}" onclick="switchList('${id}')">
-                ${escHtml(data.lists[id].name)}
-            </div>
-        `).join('');
+        dd.innerHTML = data.listOrder.map(id => {
+            if (!data.lists[id]) return '';
+            return `
+                <div class="dd-item ${id === data.activeListId ? 'active' : ''}" onclick="switchList('${id}')">
+                    ${escHtml(data.lists[id].name)}
+                </div>
+            `;
+        }).join('');
         dd.classList.add('open');
         // Close on outside click
         setTimeout(() => document.addEventListener('click', closeDropdownOutside, { once: true }), 0);
@@ -1797,17 +2050,89 @@
     }
 
     /* ═══════════════════════════════════════════════
+       COOLDOWN EXEMPTION & MIGRATION
+       ═══════════════════════════════════════════════ */
+    function getLocalTodayStr() {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function checkDailyBonusReset() {
+        const today = getLocalTodayStr();
+        if (data.dailyBonusGrantedDate && data.dailyBonusGrantedDate !== today) {
+            data.dailyBonusListId = null;
+            data.dailyBonusGrantedDate = null;
+            saveData();
+        }
+    }
+
+    function isCooldownExempt(listId) {
+        if (!listId) return false;
+        const list = data.lists[listId];
+        if (!list) return false;
+        if (list.permanentNoCooldown) return true;
+        checkDailyBonusReset();
+        return data.dailyBonusListId === listId;
+    }
+
+    function grantDailyBonus(listId) {
+        data.dailyBonusListId = listId;
+        data.dailyBonusGrantedDate = getLocalTodayStr();
+        saveData();
+        renderAll();
+        renderListManagerItems();
+    }
+
+    /* ═══════════════════════════════════════════════
        INIT
        ═══════════════════════════════════════════════ */
     function init() {
         setupCanvas();
-        // If no lists, create a default one
-        if (Object.keys(data.lists).length === 0) {
+        
+        if (!data.listOrder) {
+            data.listOrder = Object.keys(data.lists);
+            saveData();
+        }
+
+        const hasPermanent = Object.values(data.lists).some(l => l.permanentNoCooldown);
+        if (!hasPermanent) {
+            let found = false;
+            for (const [id, l] of Object.entries(data.lists)) {
+                if (l.name.trim().toLowerCase() === 'heads or tails') {
+                    l.permanentNoCooldown = true;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                const id = genId();
+                data.lists[id] = {
+                    name: 'Heads or Tails',
+                    createdAt: Date.now(),
+                    options: [
+                        { id: genId(), name: 'Heads', used: false, lastPickedAt: null },
+                        { id: genId(), name: 'Tails', used: false, lastPickedAt: null }
+                    ],
+                    history: [],
+                    todaysPick: null,
+                    lastLockedInAt: null,
+                    permanentNoCooldown: true
+                };
+                data.listOrder.push(id);
+                if (!data.activeListId) data.activeListId = id;
+            }
+            saveData();
+        }
+
+        if (data.listOrder.length === 0) {
             const id = genId();
             data.lists[id] = { name: 'My First List', createdAt: Date.now(), options: [], history: [], todaysPick: null, lastLockedInAt: null };
+            data.listOrder.push(id);
             data.activeListId = id;
             saveData();
         }
+        
+        checkDailyBonusReset();
         renderAll();
 
         // Resume cooldown if active list has one running

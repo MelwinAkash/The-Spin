@@ -1,4 +1,4 @@
-const CACHE_NAME = 'thespin-v1';
+const CACHE_NAME = 'the-spin-v2';
 const ASSETS = [
     './',
     './index.html',
@@ -12,8 +12,8 @@ self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => cache.addAll(ASSETS))
+            .then(() => self.skipWaiting())
     );
-    self.skipWaiting();
 });
 
 // Activate — purge old caches
@@ -21,12 +21,14 @@ self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(keys =>
             Promise.all(
-                keys.filter(key => key !== CACHE_NAME)
-                    .map(key => caches.delete(key))
+                keys.map(key => {
+                    if (key !== CACHE_NAME) {
+                        return caches.delete(key);
+                    }
+                })
             )
-        )
+        ).then(() => self.clients.claim())
     );
-    self.clients.claim();
 });
 
 // Fetch — cache-first, fallback to network
@@ -36,4 +38,3 @@ self.addEventListener('fetch', event => {
             .then(cached => cached || fetch(event.request))
     );
 });
-

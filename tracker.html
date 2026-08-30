@@ -347,6 +347,27 @@ const sections = [
             { id: 'cd7', text: 'Reset All clears lastLockedInAt back to null' },
             { id: 'cd8', text: 'Switching lists starts/stops cooldown correctly' },
         ]
+    },
+    {
+        id: 'updates', title: 'Feature 8 — SW Auto-updates', icon: '🔄', color: '#10B981',
+        steps: [
+            { id: 'up1', text: 'sw.js uses a versioned CACHE_NAME' },
+            { id: 'up2', text: 'sw.js install event calls skipWaiting()' },
+            { id: 'up3', text: 'sw.js activate event purges old caches and calls clients.claim()' },
+            { id: 'up4', text: 'index.html detects updatefound and controllerchange' },
+            { id: 'up5', text: 'Update banner appears when new SW is active (no auto-reload)' },
+        ]
+    },
+    {
+        id: 'backup', title: 'Feature 9 — Backup & Restore', icon: '💾', color: '#6366F1',
+        steps: [
+            { id: 'bk1', text: 'Export Backup serializes localStorage data to a date-stamped JSON download' },
+            { id: 'bk2', text: 'Import Backup prompts for .json file' },
+            { id: 'bk3', text: 'Import validates shape of JSON data before modifying app' },
+            { id: 'bk4', text: 'Import shows confirmation dialog matching Reset All style' },
+            { id: 'bk5', text: 'Import failure shows clear inline error temporarily' },
+            { id: 'bk6', text: 'Successful import refreshes UI in-place without page reload' },
+        ]
     }
 ];
 
@@ -362,6 +383,8 @@ const checklist = [
     { id: 'a9', text: 'Visual design matches dark bg + accent system — no default/generic wheel' },
     { id: 'a10', text: 'Duplicate list names blocked with inline error (create and rename)' },
     { id: 'a11', text: '30-min spin cooldown after lock-in: live countdown, persists across reloads, per-list' },
+    { id: 'a12', text: 'App notifies user of updates and applies cleanly via Refresh button' },
+    { id: 'a13', text: 'App data can be exported to JSON and restored from JSON file safely' },
 ];
 
 /* ── State ── */
@@ -382,14 +405,16 @@ const STATE = {
         'u1': true, 'u2': true, 'u3': true, 'u4': true,
         'cd1': true, 'cd2': true, 'cd3': true, 'cd4': true,
         'cd5': true, 'cd6': true, 'cd7': true, 'cd8': true,
+        'up1': true, 'up2': true, 'up3': true, 'up4': true, 'up5': true,
+        'bk1': true, 'bk2': true, 'bk3': true, 'bk4': true, 'bk5': true, 'bk6': true,
     },
     active: null,
     checklistDone: {
         'a1': true, 'a2': true, 'a3': true, 'a4': true,
         'a5': true, 'a6': true, 'a7': true, 'a8': true, 'a9': true,
-        'a10': true, 'a11': true,
+        'a10': true, 'a11': true, 'a12': true, 'a13': true,
     },
-    updatedAt: '2026-08-30T14:18:00+05:30',
+    updatedAt: '2026-08-30T14:48:00+05:30',
 };
 /*__STATE_END__*/
 

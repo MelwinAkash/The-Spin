@@ -599,6 +599,35 @@
         .dd-item.active { color: var(--violet); font-weight: 600; }
         .dd-item.active::before { content: '●'; font-size: 8px; }
 
+        /* ── Inline Error ── */
+        .inline-error {
+            font-size: 12px;
+            color: var(--danger);
+            margin-top: 6px;
+            padding: 0 2px;
+            animation: fadeUp 0.2s ease-out;
+        }
+
+        /* ── Cooldown state ── */
+        #spin-btn.cooldown {
+            opacity: 0.3;
+            cursor: not-allowed;
+            border-color: rgba(255,255,255,0.1);
+            box-shadow: none;
+            font-size: 10px;
+            letter-spacing: 0.5px;
+            line-height: 1.2;
+            padding: 4px;
+        }
+        #spin-btn.cooldown:hover {
+            background: var(--surface);
+            box-shadow: none;
+        }
+        .wheel-wrap.cooldown #wheel {
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.03)) saturate(0.3) brightness(0.5);
+            transition: filter 0.4s;
+        }
+
         /* ── Responsive ── */
         @media (min-width: 600px) {
             #app { padding: 0 32px 48px; }
@@ -685,9 +714,10 @@
             </div>
             <div class="lm-add">
                 <input type="text" id="new-list-input" placeholder="New list name…" maxlength="40"
-                       onkeydown="if(event.key==='Enter')createList()">
+                       onkeydown="if(event.key==='Enter')createList()" oninput="clearListError()">
                 <button onclick="createList()">Create</button>
             </div>
+            <div id="list-error"></div>
             <div id="list-manager-items"></div>
         </div>
     </div>
@@ -697,6 +727,7 @@
        CONSTANTS
        ═══════════════════════════════════════════════ */
     const STORAGE_KEY = 'thespin_data';
+    const COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
     const SEGMENT_COLORS = [
         { bg: '#1E1245', glow: '#8B5CF6' },
         { bg: '#082F37', glow: '#22D3EE' },
@@ -715,6 +746,7 @@
     let spinState = 'idle'; // idle | spinning | result-first | result-final | locked
     let currentResult = null; // { option, isRespin }
     let canvasSize = 320;
+    let cooldownInterval = null;
 
     function genId() { return Math.random().toString(36).substring(2, 11); }
 
@@ -754,17 +786,59 @@
         const input = document.getElementById('new-list-input');
         const name = input.value.trim();
         if (!name) return;
+
+        // Block duplicate list names (case-insensitive)
+        const dup = Object.values(data.lists).find(
+            l => l.name.trim().toLowerCase() === name.toLowerCase()
+        );
+        if (dup) {
+            showListError(`A list named "${name}" already exists — try a different name.`);
+            return;
+        }
+
         const id = genId();
-        data.lists[id] = { name, createdAt: Date.now(), options: [], history: [], todaysPick: null };
+        data.lists[id] = { name, createdAt: Date.now(), options: [], history: [], todaysPick: null, lastLockedInAt: null };
         data.activeListId = id;
         input.value = '';
+        clearListError();
         saveData();
         renderAll();
+        renderListManagerItems();
+    }
+
+    function showListError(msg) {
+        const el = document.getElementById('list-error');
+        if (el) el.innerHTML = `<div class="inline-error">${escHtml(msg)}</div>`;
+    }
+
+    function clearListError() {
+        const el = document.getElementById('list-error');
+        if (el) el.innerHTML = '';
     }
 
     function renameList(id, newName) {
         newName = newName.trim();
         if (!newName || !data.lists[id]) return;
+
+        // Allow keeping the same name unchanged
+        if (data.lists[id].name.trim().toLowerCase() === newName.toLowerCase()
+            && data.lists[id].name.trim() !== newName) {
+            // Case change only — allow it
+        } else if (data.lists[id].name === newName) {
+            // Exact same — no-op, just close
+            return;
+        }
+
+        // Block duplicate names against OTHER lists
+        const dup = Object.entries(data.lists).find(
+            ([otherId, l]) => otherId !== id && l.name.trim().toLowerCase() === newName.toLowerCase()
+        );
+        if (dup) {
+            const errEl = document.getElementById('lm-rename-error-' + id);
+            if (errEl) errEl.innerHTML = `<div class="inline-error">A list named "${escHtml(newName)}" already exists — try a different name.</div>`;
+            return;
+        }
+
         data.lists[id].name = newName;
         saveData();
         renderAll();
@@ -784,6 +858,13 @@
         currentResult = null;
         closeDropdown();
         saveData();
+
+        // Manage cooldown for newly active list
+        stopCooldown();
+        if (getCooldownRemaining() > 0) {
+            startCooldown();
+        }
+
         renderAll();
     }
 
@@ -858,7 +939,9 @@
         if (usedCount === 0) return;
         if (confirm('This makes every option available again. Continue?')) {
             list.options.forEach(o => o.used = false);
+            list.lastLockedInAt = null;
             saveData();
+            stopCooldown();
             renderAll();
         }
     }
@@ -1042,6 +1125,10 @@
         const unused = getUnusedOptions();
         if (unused.length < 2) return;
 
+        // Block if cooldown active
+        const list = getActiveList();
+        if (list && list.lastLockedInAt && (Date.now() - list.lastLockedInAt) < COOLDOWN_MS) return;
+
         const n = unused.length;
         const segAngle = (2 * Math.PI) / n;
         const winnerIdx = Math.floor(Math.random() * n);
@@ -1164,12 +1251,17 @@
             if (list.history.length > 10) list.history = list.history.slice(0, 10);
             list.todaysPick = { name: currentResult.option.name, pickedAt: Date.now() };
             currentResult.option.lastPickedAt = Date.now();
+
+            // Set cooldown
+            list.lastLockedInAt = Date.now();
+
             saveData();
         }
 
         showResultModal();
         renderTodaysPick();
         renderHistory();
+        startCooldown();
     }
 
     function markResultUsed() {
@@ -1299,14 +1391,35 @@
     function updateWheelState() {
         const btn = document.getElementById('spin-btn');
         const msg = document.getElementById('wheel-msg');
+        const wrap = document.getElementById('wheel-wrap');
         const unused = getUnusedOptions();
         const list = getActiveList();
 
+        // Clear cooldown classes by default
+        btn.classList.remove('cooldown');
+        wrap.classList.remove('cooldown');
+
         if (!list) {
             btn.disabled = true;
+            btn.textContent = 'SPIN';
             msg.textContent = '';
             return;
         }
+
+        // Check cooldown
+        const remaining = getCooldownRemaining();
+        if (remaining > 0) {
+            btn.disabled = true;
+            btn.classList.add('cooldown');
+            wrap.classList.add('cooldown');
+            const mins = Math.floor(remaining / 60000);
+            const secs = Math.floor((remaining % 60000) / 1000);
+            btn.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            msg.textContent = 'Cooldown active — commit to your pick!';
+            return;
+        }
+
+        btn.textContent = 'SPIN';
 
         if (unused.length === 0) {
             btn.disabled = true;
@@ -1317,6 +1430,38 @@
         } else {
             btn.disabled = spinning;
             msg.textContent = `${unused.length} options on the wheel`;
+        }
+    }
+
+    /* ═══════════════════════════════════════════════
+       COOLDOWN TIMER
+       ═══════════════════════════════════════════════ */
+    function getCooldownRemaining() {
+        const list = getActiveList();
+        if (!list || !list.lastLockedInAt) return 0;
+        const elapsed = Date.now() - list.lastLockedInAt;
+        return Math.max(0, COOLDOWN_MS - elapsed);
+    }
+
+    function startCooldown() {
+        stopCooldown();
+        updateWheelState();
+        cooldownInterval = setInterval(() => {
+            const remaining = getCooldownRemaining();
+            if (remaining <= 0) {
+                stopCooldown();
+                updateWheelState();
+                drawWheel();
+            } else {
+                updateWheelState();
+            }
+        }, 1000);
+    }
+
+    function stopCooldown() {
+        if (cooldownInterval) {
+            clearInterval(cooldownInterval);
+            cooldownInterval = null;
         }
     }
 
@@ -1373,12 +1518,18 @@
         const nameEl = item.querySelector('.lm-name');
         const currentName = data.lists[id].name;
 
-        nameEl.outerHTML = `
-            <input class="lm-edit-input" id="lm-edit-${id}" value="${escAttr(currentName)}"
-                onkeydown="if(event.key==='Enter'){renameList('${id}',this.value);renderListManagerItems()}
+        // Replace name span with input + error slot
+        const wrapper = document.createElement('div');
+        wrapper.style.flex = '1';
+        wrapper.style.minWidth = '0';
+        wrapper.innerHTML = `
+            <input class="lm-edit-input" id="lm-edit-${id}" value="${escAttr(currentName)}" style="width:100%"
+                onkeydown="if(event.key==='Enter'){renameList('${id}',this.value);if(!document.getElementById('lm-rename-error-${id}').innerHTML)renderListManagerItems()}
                            if(event.key==='Escape')renderListManagerItems()"
-                onblur="renameList('${id}',this.value);renderListManagerItems()">
+                onblur="setTimeout(()=>{renameList('${id}',document.getElementById('lm-edit-${id}')?.value||'');if(!document.getElementById('lm-rename-error-${id}')?.innerHTML)renderListManagerItems()},100)">
+            <div id="lm-rename-error-${id}"></div>
         `;
+        nameEl.replaceWith(wrapper);
         const inp = document.getElementById('lm-edit-' + id);
         if (inp) { inp.focus(); inp.select(); }
     }
@@ -1457,11 +1608,16 @@
         // If no lists, create a default one
         if (Object.keys(data.lists).length === 0) {
             const id = genId();
-            data.lists[id] = { name: 'My First List', createdAt: Date.now(), options: [], history: [], todaysPick: null };
+            data.lists[id] = { name: 'My First List', createdAt: Date.now(), options: [], history: [], todaysPick: null, lastLockedInAt: null };
             data.activeListId = id;
             saveData();
         }
         renderAll();
+
+        // Resume cooldown if active list has one running
+        if (getCooldownRemaining() > 0) {
+            startCooldown();
+        }
 
         // Handle resize
         let resizeTimer;

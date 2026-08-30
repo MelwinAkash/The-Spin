@@ -325,6 +325,28 @@ const sections = [
             { id: 'pw5', text: 'Add iOS home-screen tags: apple-mobile-web-app-capable, status-bar-style, apple-touch-icon' },
             { id: 'pw6', text: 'Register service worker at bottom of index.html script' },
         ]
+    },
+    {
+        id: 'unique', title: 'Feature 6 — Unique List Names', icon: '🚫', color: '#EF4444',
+        steps: [
+            { id: 'u1', text: 'Block createList if name matches existing list (case-insensitive)' },
+            { id: 'u2', text: 'Block renameList if name matches another list (allow same-to-self)' },
+            { id: 'u3', text: 'Inline error near input — no alert() popups' },
+            { id: 'u4', text: 'Error clears on next input keystroke' },
+        ]
+    },
+    {
+        id: 'cooldown', title: 'Feature 7 — 30-Min Spin Cooldown', icon: '⏱️', color: '#F59E0B',
+        steps: [
+            { id: 'cd1', text: 'Add lastLockedInAt field to list data model (default null)' },
+            { id: 'cd2', text: 'Set lastLockedInAt on Lock It In (preserving all existing behavior)' },
+            { id: 'cd3', text: 'Disable spin while cooldown active (per-list, others unaffected)' },
+            { id: 'cd4', text: 'Grey out spin button + wheel during cooldown' },
+            { id: 'cd5', text: 'Live MM:SS countdown on spin button, auto re-enable at zero' },
+            { id: 'cd6', text: 'Cooldown persists across page reloads — resumes on load' },
+            { id: 'cd7', text: 'Reset All clears lastLockedInAt back to null' },
+            { id: 'cd8', text: 'Switching lists starts/stops cooldown correctly' },
+        ]
     }
 ];
 
@@ -338,6 +360,8 @@ const checklist = [
     { id: 'a7', text: 'Lock-in shows satisfying confirmation and offers one-tap "mark as used"' },
     { id: 'a8', text: 'Fully responsive on mobile' },
     { id: 'a9', text: 'Visual design matches dark bg + accent system — no default/generic wheel' },
+    { id: 'a10', text: 'Duplicate list names blocked with inline error (create and rename)' },
+    { id: 'a11', text: '30-min spin cooldown after lock-in: live countdown, persists across reloads, per-list' },
 ];
 
 /* ── State ── */
@@ -355,13 +379,17 @@ const STATE = {
         'h1': true, 'h2': true, 'h3': true,
         'p1': true, 'p2': true, 'p3': true, 'p4': true,
         'pw1': true, 'pw2': true, 'pw3': true, 'pw4': true, 'pw5': true, 'pw6': true,
+        'u1': true, 'u2': true, 'u3': true, 'u4': true,
+        'cd1': true, 'cd2': true, 'cd3': true, 'cd4': true,
+        'cd5': true, 'cd6': true, 'cd7': true, 'cd8': true,
     },
     active: null,
     checklistDone: {
         'a1': true, 'a2': true, 'a3': true, 'a4': true,
         'a5': true, 'a6': true, 'a7': true, 'a8': true, 'a9': true,
+        'a10': true, 'a11': true,
     },
-    updatedAt: '2026-08-30T02:33:00+05:30',
+    updatedAt: '2026-08-30T14:18:00+05:30',
 };
 /*__STATE_END__*/
 
